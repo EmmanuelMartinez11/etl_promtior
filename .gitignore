@@ -1,0 +1,72 @@
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos y directorios de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Directorios de entorno virtual
+venv/
+ENV/
+env/
+.venv/
+
+# Archivos de configuración sensibles
+*.env
+.env
+config/secrets.conf
+
+# Archivos de datos y logs
+data/*
+*.csv
+*.xlsx
+*.xls
+*.parquet
+*.json
+logs/
+airflow/logs/
+
+
+# Archivos de Docker
+.docker/
+
+# Archivos de base de datos
+*.db
+*.sqlite3
+
+# Airflow
+airflow/*.pid
+
+# Específicos de IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Archivos temporales
+temp/
+tmp/
