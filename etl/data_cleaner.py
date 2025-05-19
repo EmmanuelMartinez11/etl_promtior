@@ -124,4 +124,3 @@ def fill_missing(df: pd.DataFrame, column_types: dict, num_fill: float = 0, text
 def save_to_parquet(df: pd.DataFrame, output_path: str = 'data/cleaned_data.parquet') -> None:
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     df.to_parquet(output_path, engine='pyarrow', index=False)
-    print(f"Guardado: {output_path} ({df.shape[0]} filas, {df.shape[1]} columnas)")

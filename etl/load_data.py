@@ -4,7 +4,7 @@ import time
 import re
 from datetime import datetime
 from psycopg2.extras import execute_batch
-from ingest_data.utils.db_connection import get_connection
+from etl.db_connection import get_connection
 from datetime import datetime, timedelta
 
 

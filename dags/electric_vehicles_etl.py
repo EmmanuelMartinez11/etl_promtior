@@ -1,26 +1,28 @@
 from datetime import datetime, timedelta
+from pathlib import Path
+import sys
+import os
+
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from airflow.operators.dummy import DummyOperator
 
-# Importar las funciones necesarias
-import sys
+# Ajuste de sys.path para encontrar el paquete 'etl'
+current_dir = Path(__file__).parent
+project_root = current_dir.parent  # /opt/airflow/etl
+sys.path.insert(0, str(project_root))
 
-# Se agrega el directorio etl al sys.path para que las importaciones funcionen
-sys.path.insert(0, '/etl')
-
-# Importaciones de nuestros módulos
-from download_data.download_data import check_page_status, download_csv
-from ingest_data.data_reader import load_csv_data
-from ingest_data.data_cleaner import clean_data
-from ingest_data.schema_creator import create_all_tables
-from ingest_data.load_data import (
+# Importar funciones desde el paquete etl
+from etl.download_data import check_page_status, download_csv
+from etl.data_reader import load_csv_data
+from etl.data_cleaner import clean_data
+from etl.schema_creator import create_all_tables
+from etl.load_data import (
     load_dim_vehicle,
     load_dim_date,
     load_dim_location,
     load_dim_electric_type,
     load_dim_policy,
-    load_fact_registration
+    load_fact_registration,
 )
 
 # Configuración del DAG
@@ -40,28 +42,27 @@ dag = DAG(
     description='ETL para datos de vehículos eléctricos',
     schedule_interval=timedelta(days=7),
     catchup=False,
-    max_active_runs=1
+    max_active_runs=1,
 )
 
-# URL del csv a descargar
+# Parámetros
 URL = "https://catalog.data.gov/dataset/electric-vehicle-population-data"
-DATA_DIR = "/etl/data"
-OUTPUT_FILE = f"{DATA_DIR}/cleaned_data.parquet"
+DATA_DIR = '/opt/airflow/data'
+Path(DATA_DIR).mkdir(parents=True, exist_ok=True)
+OUTPUT_FILE = os.path.join(DATA_DIR, 'cleaned_data.parquet')
 
+# ---------- Funciones de tareas
 
-#  ----------------- download_data
-# Función para verificar la disponibilidad de la pagina que contiene el csv
 def check_source():
     return check_page_status(URL)
 
-# Función para descargar los el csv
+
 def download_data():
     download_csv(URL, DATA_DIR)
-    return f"{DATA_DIR}/electric_vehicles_1.csv"
+    # Se asume que download_csv guarda como electric_vehicles_1.csv
+    return os.path.join(DATA_DIR, 'electric_vehicles_1.csv')
 
 
-#  ----------------- ingest_data
-# Función para leer y limpiar los datos
 def process_data(**kwargs):
     ti = kwargs['ti']
     csv_path = ti.xcom_pull(task_ids='download_data')
@@ -71,12 +72,11 @@ def process_data(**kwargs):
     else:
         raise ValueError("No se pudo cargar el CSV")
 
-# Crear todas las tablas de la base de datos
+
 def create_db_tables():
     create_all_tables()
 
-
-# Definición de tareas
+# ---------- Operadores Airflow
 check_source_task = PythonOperator(
     task_id='check_source_availability',
     python_callable=check_source,
@@ -89,7 +89,7 @@ download_data_task = PythonOperator(
     dag=dag,
 )
 
-read_clean_data_task = PythonOperator(
+clean_transform_task = PythonOperator(
     task_id='clean_transform_data',
     python_callable=process_data,
     provide_context=True,
@@ -102,7 +102,6 @@ create_tables_task = PythonOperator(
     dag=dag,
 )
 
-# Tareas para cargar las tablas
 load_dim_vehicle_task = PythonOperator(
     task_id='load_dim_vehicle',
     python_callable=load_dim_vehicle,
@@ -133,26 +132,19 @@ load_dim_policy_task = PythonOperator(
     dag=dag,
 )
 
-load_fact_table_task = PythonOperator(
+load_fact_task = PythonOperator(
     task_id='load_fact_table',
     python_callable=load_fact_registration,
     dag=dag,
 )
 
-# Orden de ejecución
-check_source_task >> download_data_task >> read_clean_data_task >> create_tables_task
+# ---------- Definición del flujo
+check_source_task >> download_data_task >> clean_transform_task >> create_tables_task
 
 create_tables_task >> [
-    load_dim_vehicle_task, 
-    load_dim_date_task, 
+    load_dim_vehicle_task,
+    load_dim_date_task,
     load_dim_location_task,
     load_dim_electric_type_task,
-    load_dim_policy_task
-]
-[
-    load_dim_vehicle_task, 
-    load_dim_date_task, 
-    load_dim_location_task,
-    load_dim_electric_type_task,
-    load_dim_policy_task
-] >> load_fact_table_task
+    load_dim_policy_task,
+] >> load_fact_task

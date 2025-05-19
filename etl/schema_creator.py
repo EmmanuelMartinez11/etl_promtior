@@ -1,6 +1,6 @@
 # Módulo para crear las tablas de la base de datos una por una si no existen
 # Para crear cada tabla se siguó una logica especifica
-from ingest_data.utils.db_connection import execute_query
+from etl.db_connection import execute_query
 
 # 1) Dimensión Vehículo -> Se creó esta tabla dimesion ya que presenta atributos que no cambian mucho von el tiempo, como la marca o el modelo
 CREATE_DIM_VEHICLE = """

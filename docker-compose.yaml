@@ -1,0 +1,132 @@
+x-airflow-common: &airflow-common
+    image: apache/airflow:2.8.1
+    environment: &airflow-common-env
+        AIRFLOW__CORE__EXECUTOR: LocalExecutor
+        AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://admin:admin@postgres:5432/promtior_etl
+        AIRFLOW__CORE__FERNET_KEY: "M75ev9TQaAmJgpTQXn-kmb-SRjlTiNQlqx6R6xrx5Wc="
+        AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+        AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+        AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth"
+    volumes:
+        - ./dags:/opt/airflow/dags
+        - ./logs:/opt/airflow/logs
+        - ./plugins:/opt/airflow/plugins
+        - ./etl:/opt/airflow/etl
+        - ./data:/opt/airflow/data
+        - ./config:/opt/airflow/config
+        - ./requirements.txt:/requirements.txt
+    user: "${AIRFLOW_UID:-50000}:0"
+    networks:
+        - airflow-network
+
+services:
+    postgres:
+        image: postgres:15
+        container_name: postgres
+        restart: always
+        environment:
+            POSTGRES_USER: admin
+            POSTGRES_PASSWORD: admin
+            POSTGRES_DB: promtior_etl
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        ports:
+            - "5433:5432"
+        command: >
+            postgres
+            -c listen_addresses='*'
+            -c max_connections=100
+            -c shared_buffers=128MB
+        networks:
+            - airflow-network
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U admin -d promtior_etl"]
+            interval: 5s
+            retries: 5
+    pgadmin:
+        image: dpage/pgadmin4
+        container_name: pgadmin
+        restart: always
+        environment:
+            PGADMIN_DEFAULT_EMAIL: admin@admin.com
+            PGADMIN_DEFAULT_PASSWORD: admin
+        ports:
+            - "6060:80"
+        volumes:
+            - pgadmin_data:/var/lib/pgadmin
+            - ./servers.json:/pgadmin4/servers.json:ro
+        depends_on:
+            - postgres
+        networks:
+            - airflow-network
+
+    airflow-init:
+        <<: *airflow-common
+        container_name: airflow-init
+        entrypoint: /bin/bash
+        command:
+            - -c
+            - |
+                #!/usr/bin/env bash
+                pip install --no-cache-dir -r /requirements.txt
+                airflow db upgrade
+                airflow users create \
+                --username admin \
+                --firstname Airflow \
+                --lastname Admin \
+                --role Admin \
+                --email admin@example.com \
+                --password admin || true
+                # esperamos a que DB quede lista
+                airflow db check
+        environment:
+            <<: *airflow-common-env
+        depends_on:
+            postgres:
+                condition: service_healthy
+        networks:
+            - airflow-network
+
+    airflow-webserver:
+        <<: *airflow-common
+        container_name: airflow-webserver
+        restart: always
+        depends_on:
+            postgres:
+                condition: service_healthy
+            airflow-init:
+                condition: service_completed_successfully
+        ports:
+            - "8080:8080"
+        healthcheck:
+            test: ["CMD-SHELL", "curl --fail http://localhost:8080/health"]
+            interval: 10s
+            retries: 5
+        command: webserver
+        networks:
+            - airflow-network
+
+    airflow-scheduler:
+        <<: *airflow-common
+        container_name: airflow-scheduler
+        restart: always
+        depends_on:
+            postgres:
+                condition: service_healthy
+            airflow-init:
+                condition: service_completed_successfully
+        command: scheduler
+        networks:
+            - airflow-network
+
+networks:
+    airflow-network:
+        driver: bridge
+        name: airflow-network
+        ipam:
+            config:
+                - subnet: 172.20.0.0/16
+
+volumes:
+    postgres_data:
+    pgadmin_data:
