@@ -3,7 +3,7 @@ x-airflow-common: &airflow-common
     environment: &airflow-common-env
         AIRFLOW__CORE__EXECUTOR: LocalExecutor
         AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://admin:admin@postgres:5432/promtior_etl
-        AIRFLOW__CORE__FERNET_KEY: "M75ev9TQaAmJgpTQXn-kmb-SRjlTiNQlqx6R6xrx5Wc="
+        AIRFLOW__CORE__FERNET_KEY: ""
         AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
         AIRFLOW__CORE__LOAD_EXAMPLES: "false"
         AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth"
