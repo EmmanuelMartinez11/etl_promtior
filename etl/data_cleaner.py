@@ -3,14 +3,23 @@ import re
 import os
 from datetime import datetime
 
-def clean_data(df: pd.DataFrame, output_path: str = 'data/cleaned_data.parquet') -> pd.DataFrame:
-    df_clean = df.copy()
+# Funcion principal que ejecuta todas las funciones de limpieza y crea el archivo .parquet
+def clean_data(input_file: str, output_file: str):
+    if not input_file or not os.path.exists(input_file):
+        raise FileNotFoundError(f"No se encontró el archivo de entrada: {input_file}")
+    
+    print(f"Procesando archivo: {input_file}")
+    print(f"Archivo de salida: {output_file}")
+    
+    # Lee el csv descargado 
+    df_clean = pd.read_csv(input_file)
+    
 
-    # 1. Estandarizar columnas y clasificarlas
+    # Estandariza columnas y las clasifica segun un tipo
     std_columns, column_types = standardize_column_names(df_clean.columns)
     df_clean.columns = std_columns
     
-    # 2. Normalizar texto
+    # 2. Normaliza texto para pasar de tipo object a texto
     for col in df_clean.select_dtypes(include=['object']):
         df_clean[col] = (
             df_clean[col]
@@ -40,37 +49,37 @@ def clean_data(df: pd.DataFrame, output_path: str = 'data/cleaned_data.parquet')
     # 7. Manejo de faltantes según el tipo de columna
     df_clean = fill_missing(df_clean, column_types, num_fill=-1) 
 
-    # 8. Guardar parquet
-    save_to_parquet(df_clean, output_path)
-    return df_clean
+    # 8. Guarda el arcjivo .parquet
+    save_to_parquet(df_clean, output_file)
+    print(f"Datos limpios guardados en: {output_file}")
+    
+    return output_file
+
 
 # Estandariza el nombre de las columnas en snake_case y las clasifica por tipo. 
 # Esta clasificacion es para asignar los tipos de datos que yo quiera con tal de mejorar el rendimiento, como por ejemplo, pasar el year a numero
+# Devuelve:
+# new_cols: Una lista con los nombres de columnas estandarizados
+# column_types: Un diccionario que mapea cada nombre de columna estandarizado a su tipo clasificado
+
 def standardize_column_names(cols):
     new_cols = []
     column_types = {}
     
-    numeric_columns = [
-        'model_year', 'electric_range', 'base_msrp', 'dol_vehicle_id', 
-        'legislative_district', 'census_tract'
-    ]
+    numeric_columns = ['model_year', 'electric_range', 'base_msrp', 'dol_vehicle_id', 'legislative_district', 'census_tract']
     
-    date_columns = [
-        'registration_date'
-    ]
+    date_columns = ['registration_date']
     
-    point_columns = [
-        'vehicle_location'
-    ]
+    point_columns = ['vehicle_location']
     
     for col in cols:
-        # Estandariza nombre
+        # Estandariza nombre a snake_case
         name = col.lower()
         name = re.sub(r'[^a-z0-9]+', '_', name)
         name = re.sub(r'_+', '_', name).strip('_')
         new_cols.append(name)
         
-        # Clasifica por tipo
+        # Clasifica por tipo, basicamente busco eliminar el tipo object para que no consuma tanto
         if name in numeric_columns or any(name.endswith(f'_{suffix}') for suffix in ['id', 'year', 'range', 'msrp', 'price', 'cost']):
             column_types[name] = 'numeric'
         elif name in date_columns or any(pattern in name for pattern in ['date', 'time']):

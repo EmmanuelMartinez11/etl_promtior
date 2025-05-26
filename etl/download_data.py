@@ -3,29 +3,20 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
-# URL hardcodeada ya que siempre se descargará de la misma pagina
-url = "https://catalog.data.gov/dataset/electric-vehicle-population-data"
 
-
-    # Funcion que comprueba que la pagina esté activa para descargar el CSV
-def check_page_status(url: str) -> bool:
+# Funcion que comprueba que la pagina esté activa para descargar el CSV
+def check_page_status(url: str):
     try:
         reponse = requests.get(url, timeout=30)
         if reponse.status_code == 200:
             print(f"Página accesible: {url}")
-            return True
         else:
             print(f"Página retornó código {reponse.status_code}: {url}")
-            return False
     except requests.exceptions.RequestException as e:
         print(f"Error al conectar con la página: {e}")
-        return False
-
-status = check_page_status(url)
 
 
-
-# Descarga todos los archivos CSV con data-format='csv' desde la página y los guarda en la carpeta output_dir.
+# Retorna el primer archivo descargado
 def download_csv(url: str, output_dir: str = "data"):
     try:
         response = requests.get(url, timeout=30)
@@ -42,9 +33,10 @@ def download_csv(url: str, output_dir: str = "data"):
 
         if not href_list:
             print("No se encontraron enlaces CSV en la página.")
-            return
+            return []
 
         os.makedirs(output_dir, exist_ok=True)
+        downloaded_files = []
 
         for i, relative_url in enumerate(href_list):
             full_url = urljoin(url, relative_url)
@@ -54,11 +46,19 @@ def download_csv(url: str, output_dir: str = "data"):
             print(f"Descargando desde {full_url}...")
             csv_response = requests.get(full_url)
             csv_response.raise_for_status()
+            print(f"Descarga completa")
 
             with open(filepath, "wb") as f:
                 f.write(csv_response.content)
 
             print(f"Archivo guardado: {filepath}")
+            downloaded_files.append(filepath)
+
+        if downloaded_files:
+            return downloaded_files[0] # Esto es para guardar la ruta en un scom
+        
+        return None
 
     except Exception as e:
         print(f"Error al descargar CSVs: {e}")
+        return None

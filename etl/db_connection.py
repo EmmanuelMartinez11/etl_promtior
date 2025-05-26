@@ -1,3 +1,5 @@
+# Modulo que facilita la conexion con la base de datos
+
 import os
 import psycopg2
 from configparser import ConfigParser
@@ -6,12 +8,12 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def get_base_path():
-    if os.environ.get('AIRFLOW_HOME'):
-        return os.environ['AIRFLOW_HOME']
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
+# Se obtiene el path del archivo de configuracion, el cual contiene las credenciales
+def get_base_path():
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 CONFIG_FILE_PATH = os.path.join(get_base_path(), 'config', 'config.conf')
+
 
 def load_config():
     parser = ConfigParser()
@@ -49,6 +51,7 @@ def execute_query(query, params=None, commit=False):
 
     try:
         cur = conn.cursor()
+        logger.info(f"Ejecutando query: {query} | Params: {params}")
         cur.execute(query, params or ())
         if commit:
             conn.commit()
